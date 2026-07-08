@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # 1. REDIS: Hızlı veri önbelleğe alma (Cache) ve kuyruk için
+  redis:
+    image: redis:7-alpine
+    container_name: niqs_redis
+    ports:
+      - "6379:6379"
+
+  # 2. KAFKA (ve Zookeeper): Network verilerini/akışlarını (stream) anlık yakalamak için
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: niqs_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: niqs_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://194.62.54.28:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  # 3. ELASTICSEARCH: Logları ve network metriklerini indeksleyip aramak için
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    container_name: niqs_elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # RAM dostu ayar
+
+  # 4. GRAFANA: Tüm bu verileri harika grafiklere (Dashboard) dökmek için
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: niqs_grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - elasticsearch
+
+
