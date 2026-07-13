@@ -1,28 +1,21 @@
-version: '3.8'
-
 services:
-  # 1. REDIS: Hızlı veri önbelleğe alma (Cache) ve kuyruk için
-  redis:
-    image: redis:7-alpine
-    container_name: niqs_redis
-    ports:
-      - "6379:6379"
-
-  # 2. KAFKA (ve Zookeeper): Network verilerini/akışlarını (stream) anlık yakalamak için
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
+    image: confluentinc/cp-zookeeper:latest
     container_name: niqs_zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - niqs_network
 
   kafka:
-    image: confluentinc/cp-kafka:7.4.0
+    image: confluentinc/cp-kafka:latest
     container_name: niqs_kafka
     depends_on:
       - zookeeper
     ports:
       - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -30,25 +23,44 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - niqs_network
 
-  # 3. ELASTICSEARCH: Logları ve network metriklerini indeksleyip aramak için
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
-    container_name: niqs_elasticsearch
+  redis:
+    image: redis:latest
+    container_name: niqs_redis
     ports:
-      - "9200:9200"
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # RAM dostu ayar
+      - "6379:6379"
+    networks:
+      - niqs_network
 
-  # 4. GRAFANA: Tüm bu verileri harika grafiklere (Dashboard) dökmek için
+  postgres:
+    image: postgres:15
+    container_name: niqs_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ozer_user
+      POSTGRES_PASSWORD: ozer_password
+      POSTGRES_DB: ram_metrics_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - niqs_network
+
   grafana:
-    image: grafana/grafana:10.2.2
+    image: grafana/grafana:latest
     container_name: niqs_grafana
     ports:
       - "3000:3000"
     depends_on:
-      - elasticsearch
+      - postgres
+    networks:
+      - niqs_network
 
+networks:
+  niqs_network:
+    driver: bridge
 
+volumes:
+  pgdata:
