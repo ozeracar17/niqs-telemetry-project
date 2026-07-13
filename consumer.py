@@ -6,8 +6,9 @@ from kafka.errors import KafkaTimeoutError
 
 print("NIQS Telemetry Consumer başlatılıyor...")
 
+# Docker iç ağında servisin adı 'postgres' olduğu için host'u postgres yapıyoruz
 DB_PARAMS = {
-    "host": "127.0.0.1", 
+    "host": "postgres", 
     "database": "ram_metrics_db",
     "user": "ozer_user",
     "password": "ozer_password",
@@ -37,29 +38,25 @@ def init_db():
 
 init_db()
 
-# Hem dış IP hem localhost'u sırayla deneyecek dayanıklı Kafka bağlantısı
+# Docker iç ağındaki direkt servis ismi ve iç port (29092) üzerinden kırılmaz bağlantı
 consumer = None
 while consumer is None:
-    for broker in ['194.62.54.28:9092', '127.0.0.1:9092']:
-        try:
-            print(f"Kafka broker deneniyor: {broker}")
-            consumer = KafkaConsumer(
-                'ram-metrics-topic',
-                bootstrap_servers=[broker],
-                auto_offset_reset='latest',
-                enable_auto_commit=True,
-                value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-                request_timeout_ms=5000
-            )
-            print(f"Kafka bağlantısı BAŞARILI: {broker}")
-            break
-        except KafkaTimeoutError:
-            print(f"Kafka broker zaman aşımı verdi: {broker}")
-        except Exception as e:
-            print(f"Bağlantı hatası: {e}")
-    
-    if consumer is None:
-        print("Kafka'ya bağlanılamadı. 5 saniye sonra tekrar denenecek...")
+    try:
+        print("Docker iç ağı üzerinden Kafka'ya bağlanılıyor (kafka:29092)...")
+        consumer = KafkaConsumer(
+            'ram-metrics-topic',
+            bootstrap_servers=['kafka:29092'],
+            auto_offset_reset='latest',
+            enable_auto_commit=True,
+            value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+            request_timeout_ms=5000
+        )
+        print("Kafka bağlantısı BAŞARILI!")
+    except KafkaTimeoutError:
+        print("Kafka zaman aşımı verdi, 5 saniye sonra tekrar denenecek...")
+        time.sleep(5)
+    except Exception as e:
+        print(f"Bağlantı hatası: {e}")
         time.sleep(5)
 
 print("Sunucu ve PostgreSQL köprüsü kuruldu. Canlı veri bekleniyor...")
