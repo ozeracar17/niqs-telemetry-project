@@ -1,32 +1,66 @@
 import json
-from datetime import datetime
+import time
+import psycopg2
 from kafka import KafkaConsumer
-from elasticsearch import Elasticsearch
 
 print("NIQS Telemetry Consumer başlatılıyor...")
 
-# Docker içindeki Kafka'ya sunucu üzerinden (172.17.0.1 köprüsüyle) bağlanıyoruz
+# PostgreSQL Bağlantı Ayarları
+DB_PARAMS = {
+    "host": "localhost",  # Sunucunun içinden eriştiğimiz için localhost yapıyoruz
+    "database": "ram_metrics_db",
+    "user": "ozer_user",
+    "password": "ozer_password",
+    "port": "5432"
+}
+
+# Veri tabanında RAM tablosunu otomatik oluşturma
+def init_db():
+    while True:
+        try:
+            conn = psycopg2.connect(**DB_PARAMS)
+            cur = conn.cursor()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ram_metrics (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP NOT NULL,
+                    ram_usage_percent REAL NOT NULL
+                );
+            """)
+            conn.commit()
+            cur.close()
+            conn.close()
+            print("PostgreSQL bağlantısı başarılı ve tablo hazır.")
+            break
+        except Exception as e:
+            print("PostgreSQL'e bağlanılamadı, 3 saniye sonra tekrar denenecek...", e)
+            time.sleep(3)
+
+init_db()
+
+# Kafka Consumer Kurulumu - Hem localhost hem dış IP garantili olsun diye ikisini de yazıyoruz
 consumer = KafkaConsumer(
-    'niqs-ram-telemetry',
-    bootstrap_servers=['172.17.0.1:9092'],
+    'ram-metrics-topic',
+    bootstrap_servers=['localhost:9092', '194.62.54.28:9092'],
     auto_offset_reset='latest',
     enable_auto_commit=True,
-    value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-    bootstrap_timeout_ms=10000
+    value_deserializer=lambda x: json.loads(x.decode('utf-8'))
 )
 
-# Docker içindeki Elasticsearch'e sunucu üzerinden bağlanıyoruz
-es = Elasticsearch(["http://127.0.0.1:9200"])
-print("Sunucu ve Docker köprüsü kuruldu. Veri bekleniyor...")
+print("Sunucu ve PostgreSQL Docker köprüsü kuruldu. Veri bekleniyor...")
 
 for message in consumer:
-    payload = message.value
-    print(f"Kafka'dan veri alındı: {payload}")
-    if 'timestamp' in payload:
-        raw_time = payload['timestamp']
-        payload['timestamp'] = datetime.fromtimestamp(raw_time).isoformat()
     try:
-        res = es.index(index='ram-metrics', document=payload)
-        print(f"Veri Elasticsearch'e başarıyla kaydedildi. ID: {res['_id']}")
+        data = message.value
+        conn = psycopg2.connect(**DB_PARAMS)
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO ram_metrics (timestamp, ram_usage_percent) VALUES (%s, %s)",
+            (data.get('timestamp'), data.get('ram_usage_percent'))
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"Veri PostgreSQL'e kaydedildi: {data}")
     except Exception as e:
-        print(f"Kayıt hatası: {e}")
+        print(f"Veri işlenirken hata oluştu: {e}")
