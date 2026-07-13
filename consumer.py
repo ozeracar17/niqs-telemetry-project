@@ -2,12 +2,12 @@ import json
 import time
 import psycopg2
 from kafka import KafkaConsumer
+from kafka.errors import KafkaTimeoutError
 
 print("NIQS Telemetry Consumer başlatılıyor...")
 
-# Docker iç ağı üzerinden PostgreSQL bağlantısı
 DB_PARAMS = {
-    "host": "postgres", 
+    "host": "127.0.0.1", 
     "database": "ram_metrics_db",
     "user": "ozer_user",
     "password": "ozer_password",
@@ -37,16 +37,32 @@ def init_db():
 
 init_db()
 
-# Docker iç ağındaki direkt isim üzerinden Kafka bağlantısı
-consumer = KafkaConsumer(
-    'ram-metrics-topic',
-    bootstrap_servers=['kafka:29092'],
-    auto_offset_reset='latest',
-    enable_auto_commit=True,
-    value_deserializer=lambda x: json.loads(x.decode('utf-8'))
-)
+# Hem dış IP hem localhost'u sırayla deneyecek dayanıklı Kafka bağlantısı
+consumer = None
+while consumer is None:
+    for broker in ['194.62.54.28:9092', '127.0.0.1:9092']:
+        try:
+            print(f"Kafka broker deneniyor: {broker}")
+            consumer = KafkaConsumer(
+                'ram-metrics-topic',
+                bootstrap_servers=[broker],
+                auto_offset_reset='latest',
+                enable_auto_commit=True,
+                value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+                request_timeout_ms=5000
+            )
+            print(f"Kafka bağlantısı BAŞARILI: {broker}")
+            break
+        except KafkaTimeoutError:
+            print(f"Kafka broker zaman aşımı verdi: {broker}")
+        except Exception as e:
+            print(f"Bağlantı hatası: {e}")
+    
+    if consumer is None:
+        print("Kafka'ya bağlanılamadı. 5 saniye sonra tekrar denenecek...")
+        time.sleep(5)
 
-print("Sunucu ve PostgreSQL Docker köprüsü kuruldu. Veri bekleniyor...")
+print("Sunucu ve PostgreSQL köprüsü kuruldu. Canlı veri bekleniyor...")
 
 for message in consumer:
     try:
@@ -60,6 +76,6 @@ for message in consumer:
         conn.commit()
         cur.close()
         conn.close()
-        print(f"Veri PostgreSQL'e kaydedildi: {data}")
+        print(f"Veri PostgreSQL'e başarıyla kaydedildi: {data}")
     except Exception as e:
-        print(f"Veri işlenirken hata oluştu: {e}")
+        print(f"Veri tabanına yazılırken hata oluştu: {e}")
