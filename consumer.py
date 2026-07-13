@@ -5,16 +5,15 @@ from kafka import KafkaConsumer
 
 print("NIQS Telemetry Consumer başlatılıyor...")
 
-# PostgreSQL Bağlantı Ayarları
+# Docker iç ağı üzerinden PostgreSQL bağlantısı
 DB_PARAMS = {
-    "host": "localhost",  # Sunucunun içinden eriştiğimiz için localhost yapıyoruz
+    "host": "postgres", 
     "database": "ram_metrics_db",
     "user": "ozer_user",
     "password": "ozer_password",
     "port": "5432"
 }
 
-# Veri tabanında RAM tablosunu otomatik oluşturma
 def init_db():
     while True:
         try:
@@ -38,10 +37,10 @@ def init_db():
 
 init_db()
 
-# Kafka Consumer Kurulumu - Hem localhost hem dış IP garantili olsun diye ikisini de yazıyoruz
+# Docker iç ağındaki direkt isim üzerinden Kafka bağlantısı
 consumer = KafkaConsumer(
     'ram-metrics-topic',
-    bootstrap_servers=['localhost:9092', '194.62.54.28:9092'],
+    bootstrap_servers=['kafka:29092'],
     auto_offset_reset='latest',
     enable_auto_commit=True,
     value_deserializer=lambda x: json.loads(x.decode('utf-8'))
