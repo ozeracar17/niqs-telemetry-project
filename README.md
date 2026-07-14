@@ -41,9 +41,24 @@ Projeyi kendi bilgisayarınızda veya sunucunuzda ayağa kaldırmak için aşağ
 ```bash
 git clone https://github.com/ozeracar17/niqs-telemetry-project.git
 cd niqs-telemetry-project
+```
+
+### 2. Docker Konteynerlerini Başlatın
+
+```bash
+docker-compose up -d
+```
+
+### 3. Python Servislerini Uyandırın
+
+```bash
 # Veri üreticisini başlat (Producer)
 docker start niqs_producer_live
 
 # Veri tüketicisini başlat (Consumer)
 docker start niqs_consumer_live
+```
 
+### 4. Grafana Üzerinden İzleyin
+
+Tarayıcınızdan `http://localhost:3000` adresine gidin. Kullanıcı adı ve şifreyle (`admin` / `admin`) giriş yaptıktan sonra veritabanı bağlantısını kurup dilediğiniz paneli saniyeler içinde oluşturabilirsiniz.
