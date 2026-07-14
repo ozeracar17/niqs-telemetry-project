@@ -1,3 +1,5 @@
-*.log
+kafka_2.13-3.5.1.tgz
+kafka_2.13-3.5.1/
 __pycache__/
+*.pyc
 .DS_Store
