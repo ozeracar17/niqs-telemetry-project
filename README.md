@@ -37,16 +37,13 @@ Sadece güncel RAM kullanım yüzdesine odaklanan ve arka planda hafif geçmiş 
 Projeyi kendi bilgisayarınızda veya sunucunuzda ayağa kaldırmak için aşağıdaki adımları sırasıyla uygulayabilirsiniz:
 
 ### 1. Depoyu Klonlayın
+
 ```bash
-git clone [https://github.com/ozeracar17/niqs-telemetry-project.git](https://github.com/ozeracar17/niqs-telemetry-project.git)
+git clone https://github.com/ozeracar17/niqs-telemetry-project.git
 cd niqs-telemetry-project
-
-### 2. Docker Konteynerlerini Başlatın
-docker-compose up -d
-
-### 3. Python Servislerini Uyandırın
 # Veri üreticisini başlat (Producer)
 docker start niqs_producer_live
+
 # Veri tüketicisini başlat (Consumer)
 docker start niqs_consumer_live
 
