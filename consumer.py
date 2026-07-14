@@ -33,6 +33,10 @@ try:
             "INSERT INTO ram_metrics (timestamp, ram_usage_percent) VALUES (%s, %s)",
             (dt_object, data['percent_used'])
         )
+        
+        # 1 günden eski verileri otomatik silme komutu
+        cur.execute("DELETE FROM ram_metrics WHERE timestamp < NOW() - INTERVAL '1 day';")
+        
         conn.commit()
         print(f"Yazıldı: {dt_object} -> %{data['percent_used']}")
 except Exception as e:
