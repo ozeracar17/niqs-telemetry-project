@@ -55,9 +55,17 @@ docker start niqs_producer_live
 docker start niqs_consumer_live
 ```
 
-### 4. Grafana Üzerinden İzleyin
+### 4. Grafana Dashboard Kurulumu
 
-Tarayıcınızdan `http://localhost:3000` adresine gidin. Kullanıcı adı ve şifreyle (`admin` / `admin`) giriş yaptıktan sonra sistemin canlı sağlığını saniyeler içinde izlemeye başlayabilirsiniz.
+Tarayıcınızdan `http://localhost:3000` adresine gidin. Kullanıcı adı ve şifreyle (`admin` / `admin`) giriş yapın. PostgreSQL veritabanınızı "Data Source" olarak ekledikten sonra, RAM metriklerini zaman serisi (Time series) olarak canlı izlemek ve alarm kurmak için yeni bir panel açıp aşağıdaki SQL sorgusunu çalıştırın:
+
+```sql
+SELECT 
+  timestamp AS "time", 
+  ram_usage_percent AS "RAM Kullanımı (%)" 
+FROM ram_metrics 
+ORDER BY timestamp ASC;
+```
 
 ### 5. Telegram Alarm Entegrasyonu (Opsiyonel)
 Projeyi kendi yerelinizde kurduktan sonra Telegram bildirimlerini aktif etmek isterseniz:
